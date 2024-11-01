@@ -1,0 +1,160 @@
+<!--
+Code supplied by Claude.ai
+In a production environment key would be supplied backend with less usage limits
+
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #33ff33;
+            font-family: monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #output {
+            background-color: #000;
+            padding: 20px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+        }
+        #input {
+            width: 100%;
+            padding: 10px;
+            background-color: #000;
+            border: 1px solid #33ff33;
+            color: #33ff33;
+            font-family: monospace;
+            border-radius: 5px;
+        }
+        .prompt {
+            color: #ff9933;
+        }
+        .typing-indicator {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="output"></div>
+        <input type="text" id="input" placeholder="Enter your command..." autofocus>
+    </div>
+
+    <script>
+        // Game state to track context
+        const gameState = {
+            history: [], // Store conversation history
+            waiting: false
+        };
+
+        const output = document.getElementById('output');
+        const input = document.getElementById('input');
+        
+        function println(text) {
+            output.innerHTML += text + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'typing-indicator';
+            indicator.textContent = 'Claude is thinking...';
+            output.appendChild(indicator);
+            output.scrollTop = output.scrollHeight;
+            return indicator;
+        }
+
+        async function queryAI(userInput) {
+            // Replace with your actual API key and endpoint
+            const API_KEY = 'sk-ant-api03-cd_Gkqzvq_OInAuliv0AghBhxWxSgKUDKjKuRIHgrQW)PQiQHYro-mLzJN3ChhLe7G1SeGRUrzF7piZ6YqSykw-svrIrQAA';
+            const API_URL = 'https://api.anthropic.com/v1/messages';
+
+            // Add user input to history
+            gameState.history.push({
+                role: "user",
+                content: userInput
+            });
+
+            // Construct the system prompt
+            const systemPrompt = `You are the game master for a text adventure game. Current game context: The player is exploring a mysterious mansion. 
+            Interpret the player's commands and generate engaging, descriptive responses. Keep responses concise (2-3 sentences) unless more detail is needed.
+            You can describe locations, objects, events, and outcomes of player actions. Be creative but consistent with previous responses.`;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': API_KEY,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-3-opus-20240229',
+                        max_tokens: 1000,
+                        messages: [
+                            {
+                                role: 'system',
+                                content: systemPrompt
+                            },
+                            ...gameState.history
+                        ]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+
+                const data = await response.json();
+                return data.content[0].text;
+
+            } catch (error) {
+                console.error('Error:', error);
+                return "I apologize, but I encountered an error processing your command. Please try again.";
+            }
+        }
+
+        async function processCommand(command) {
+            if (gameState.waiting) return;
+            gameState.waiting = true;
+
+            const indicator = showTypingIndicator();
+            
+            try {
+                const response = await queryAI(command);
+                indicator.remove();
+                println(`> ${command}`);
+                println(response);
+            } catch (error) {
+                indicator.remove();
+                println('An error occurred while processing your command. Please try again.');
+            }
+
+            gameState.waiting = false;
+        }
+
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && input.value.trim() !== '') {
+                const command = input.value;
+                input.value = '';
+                processCommand(command);
+            }
+        });
+
+        // Initial game start
+        println('Welcome to the AI-Powered Text Adventure!\nYou find yourself standing before an imposing mansion, its gothic architecture looming against the darkening sky. What would you like to do?\n');
+    </script>
+</body>
+</html>
