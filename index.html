@@ -7,7 +7,55 @@ note: production code should not have a key on git like this
 
 <!DOCTYPE html>
 <html lang="en">
-<!-- ... (keep existing head and style sections) ... -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Text Adventure</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #33ff33;
+            font-family: monospace;
+            font-size: 16px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #output {
+            background-color: #001100;
+            border: 1px solid #33ff33;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        #input {
+            width: 100%;
+            background-color: #001100;
+            border: 1px solid #33ff33;
+            color: #33ff33;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 16px;
+        }
+        .input-line {
+            color: #ffff33;
+            margin: 10px 0;
+        }
+        .loading {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
 <body>
     <div id="game-container">
         <div id="output"></div>
@@ -27,65 +75,51 @@ note: production code should not have a key on git like this
         Keep responses under 150 words and maintain an eerie, mysterious atmosphere. Include occasional random events.
         Track the player's inventory and location. Start by describing the initial room.`;
 
-        let conversationHistory = [
-            {
-                role: "system",
-                content: initialContext
-            }
-        ];
+        // Initialize empty conversation history
+        let conversationHistory = [];
 
         async function sendToClaude(userInput) {
-    try {
-        // Extract non-system messages from conversation history
-        const messageHistory = conversationHistory
-            .filter(msg => msg.role !== "system")
-            .map(msg => ({
-                role: msg.role,
-                content: msg.content
-            }));
+            try {
+                console.log('Sending request with input:', userInput);
+                
+                const response = await fetch('https://divine-leaf-4e7f.dobsonr1.workers.dev', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-3-sonnet-20240229',
+                        max_tokens: 150,
+                        system: initialContext,
+                        messages: [
+                            ...conversationHistory,
+                            {
+                                role: "user",
+                                content: userInput
+                            }
+                        ]
+                    })
+                });
 
-        // Get system message
-        const systemMessage = conversationHistory.find(msg => msg.role === "system")?.content || initialContext;
+                const data = await response.json();
+                console.log('Full API Response:', data);
 
-        const response = await fetch('https://divine-leaf-4e7f.dobsonr1.workers.dev', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-sonnet-20240229',
-                max_tokens: 150,
-                system: systemMessage,  // System message as top-level parameter
-                messages: [
-                    ...messageHistory,
-                    {
-                        role: "user",
-                        content: userInput
-                    }
-                ]
-            })
-        });
+                if (data.error) {
+                    console.error('API Error:', data.error);
+                    throw new Error(data.error.message || 'Unknown API error');
+                }
 
-        const data = await response.json();
-        console.log('Full API Response:', data);
+                if (!data.content || !Array.isArray(data.content) || !data.content[0]?.text) {
+                    console.error('Unexpected response structure:', data);
+                    throw new Error('Invalid response format from API');
+                }
 
-        if (data.error) {
-            console.error('API Error:', data.error);
-            throw new Error(data.error.message || 'Unknown API error');
+                return data.content[0].text;
+            } catch (error) {
+                console.error('Error details:', error);
+                throw new Error(error.message || 'Failed to communicate with the game master');
+            }
         }
-
-        if (!data.content || !Array.isArray(data.content) || !data.content[0]?.text) {
-            console.error('Unexpected response structure:', data);
-            throw new Error('Invalid response format from API');
-        }
-
-        return data.content[0].text;
-    } catch (error) {
-        console.error('Error details:', error);
-        throw new Error(error.message || 'Failed to communicate with the game master');
-    }
-}
-
 
         function appendToOutput(text, isInput = false, isError = false) {
             const p = document.createElement('p');
@@ -116,16 +150,15 @@ note: production code should not have a key on git like this
                     outputDiv.removeChild(loadingEl);
                     appendToOutput(response);
                     
+                    // Update conversation history
                     conversationHistory.push(
                         { role: "user", content: userInput },
                         { role: "assistant", content: response }
                     );
                     
+                    // Keep conversation history manageable
                     if (conversationHistory.length > 10) {
-                        conversationHistory = [
-                            conversationHistory[0],
-                            ...conversationHistory.slice(-9)
-                        ];
+                        conversationHistory = conversationHistory.slice(-10);
                     }
                 } catch (error) {
                     outputDiv.removeChild(loadingEl);
@@ -134,8 +167,7 @@ note: production code should not have a key on git like this
                 }
             }
         }
-        let conversationHistory = [];  // Remove system message from conversation history
-        // Initialize game
+
         async function initGame() {
             try {
                 console.log('Initializing game...');
