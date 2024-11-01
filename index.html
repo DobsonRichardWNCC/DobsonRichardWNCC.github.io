@@ -70,9 +70,6 @@ note: production code should not have a key on git like this
             inventory: [],
             visitedRooms: new Set()
         };
-
-        // This would be replaced with your actual API key or endpoint
-        const ANTHROPIC_API_KEY = 'YOUR_API_KEY';
         
         const initialContext = `You are the game master for a text adventure game. The setting is a mysterious abandoned space station. 
         Keep responses under 150 words and maintain an eerie, mysterious atmosphere. Include occasional random events.
@@ -86,12 +83,10 @@ note: production code should not have a key on git like this
         ];
 
         async function sendToClaude(userInput) {
-            const response = await fetch('https://divine-leaf-4e7f.dobsonr1.workers.dev/', {
+            const response = await fetch('https://divine-leaf-4e7f.dobsonr1.workers.dev', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': ANTHROPIC_API_KEY,
-                    'anthropic-version': '2023-06-01'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     model: 'claude-3-sonnet-20240229',
@@ -103,7 +98,15 @@ note: production code should not have a key on git like this
                 })
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
             return data.content[0].text;
         }
 
